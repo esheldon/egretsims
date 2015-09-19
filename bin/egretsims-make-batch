@@ -44,7 +44,7 @@ def get_meds_file(conf, fnum):
 def get_psf_file(conf, fnum):
     base=conf['output_base']
 
-    fname = '%s_psf%07d.fits' %(base,fnum)
+    fname = '%s_psf%06d.fits' %(base,fnum)
     fname = os.path.join(base, fname)
 
     return fname
