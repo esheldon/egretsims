@@ -1,0 +1,211 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import os
+import yaml
+from argparse import ArgumentParser
+
+parser=ArgumentParser()
+
+parser.add_argument('batch_system',help='batch system')
+parser.add_argument('run',help='run identifier')
+parser.add_argument('--missing',action='store_true',
+                    help='only do missing splits')
+
+def get_config_file(run):
+    """
+    where the config files are located
+    """
+    d=os.environ['EGRET_CONFIG_DIR']
+    fname = '%s.yaml' % run
+
+    fname = os.path.join(d, fname)
+    return fname
+
+
+def read_config(run):
+    """
+    read the config file describing a sim
+    """
+    fname=get_config_file(run)
+    print("reading:",fname)
+    with open(fname) as fobj:
+        data = yaml.load(fobj)
+
+    return data
+
+def get_meds_file(conf, fnum):
+    base=conf['output_base']
+
+    fname = '%s_meds%06d.fits.fz' % (base, fnum)
+    fname = os.path.join(base, fname)
+
+    return fname
+
+def get_psf_file(conf, fnum):
+    base=conf['output_base']
+
+    fname = '%s_psf%07d.fits' %(base,fnum)
+    fname = os.path.join(base, fname)
+
+    return fname
+
+
+class BatchMaker(dict):
+    def __init__(self, run, missing=False, **kw):
+        """
+        send extra things for template through kw
+        """
+
+        self.update(kw)
+
+        self['run'] = run
+        self['missing'] = missing
+
+        self._load_config()
+
+        self._set_walltime()
+        self._make_dirs()
+
+    def write_scripts(self):
+        """
+        Write all scripts
+        """
+
+        nfiles = self['Nfiles']
+        self.njobs_written = 0
+
+        for fnum in xrange(nfiles):
+            self.write_script(fnum)
+
+        print("scripts are in:",self.get_batch_dir())
+        print("total jobs written:",self.njobs_written)
+        print(self._walltime_mess)
+
+    def write_script(self, fnum):
+        """
+        write the script for a single split
+        """
+
+        fname = self.get_batch_file(fnum, missing=self['missing'])
+
+        self['job_name'] = self.get_job_name(fnum)
+        self['config_file'] = get_config_file(self['run'])
+        self['fnum'] = fnum
+
+        if self['missing']:
+            meds_file=get_meds_file(self, fnum)
+            psf_file=get_psf_file(self, fnum)
+
+            if os.path.exists(meds_file) and os.path.exists(psf_file):
+                if os.path.exists(fname):
+                    os.remove(fname)
+                return
+
+        self.njobs_written += 1
+        print("writing:",fname)
+        with open(fname,'w') as fobj:
+            text = self.get_text()
+            fobj.write(text)
+
+    def get_job_name(self, fnum):
+        return '%s-%06d' % (self['run'], fnum)
+
+    def get_batch_file(self, run, fnum, beg, end, missing=False):
+        raise NotImplementedError("implement in child class")
+
+
+    def _load_config(self):
+        conf = read_config(self['run'])
+        self.update(conf)
+
+    def _set_walltime(self):
+        overhead = 5.0*60.0 # 5 minute overhead for preload
+        ngals = self['Ngals']
+        sec_per=self['sec_per']
+
+        time_hours = (overhead + ngals*sec_per)/3600.0
+
+        # always add an extra hour
+        time_hours_supp = time_hours + 1.0
+
+        hours_round = int(round(time_hours_supp))
+
+        if time_hours < 10:
+            tstr = '0%d:00' % hours_round
+        else:
+            tstr = '%d:00' % hours_round
+
+        self['walltime'] = tstr
+
+        self._walltime_mess = " ".join(["nper: %d" % self['Ngals'],
+                                        "time per: %g" % self['sec_per'],
+                                        "hours: %g" % time_hours,
+                                        "walltime: %s" %self['walltime']])
+ 
+    def _make_dirs(self):
+        dir1=os.path.dirname(self['output_base'])
+        dir2=self.get_batch_dir()
+
+        for dir in [dir1,dir2]:
+            if not os.path.exists(dir):
+                print("making dir:",dir)
+                os.makedirs(dir)
+
+class LSFMaker(BatchMaker):
+    def get_batch_dir(self):
+        bdir = os.path.dirname(self['output_base'])
+        bdir = os.path.dirname(bdir)
+        batch_dir=os.path.join(bdir, 'lsf')
+        return batch_dir
+
+    def get_batch_file(self, fnum, missing=False):
+        dir=self.get_batch_dir()
+        fname = '%s-%06d' % (self['run'], fnum)
+        if missing:
+            fname = '%s-missing' % fname
+
+        fname = '%s.lsf' % fname
+
+        return os.path.join(dir, fname)
+
+    def get_text(self):
+        return _lsf_template % self
+
+
+
+
+_lsf_template="""#!/bin/bash
+#BSUB -J %(job_name)s
+#BSUB -n 1
+#BSUB -oo ./%(job_name)s.oe
+#BSUB -W %(walltime)s
+#BSUB -R "linux64 && rhel60 && scratch > 2"
+
+echo "working on host: $(hostname)"
+
+numfiles=%(Nfiles)s
+fnum=%(fnum)d
+output_base=%(output_base)s
+config_file=%(config_file)s
+
+egret                            \\
+    --num-seeds ${numfiles}      \\
+    --seed-index ${fnum}         \\
+    --output-base ${output_base} \\
+    ${config_file}
+"""
+
+_batch_systems=['lsf']
+
+
+def main():
+    args = parser.parse_args()
+
+    if args.batch_system=='lsf':
+        cls = LSFMaker(args.run, missing=args.missing)
+    else:
+        raise ValueError("bad batch system: '%s'" % args.batch_system)
+
+    cls.write_scripts()
+
+main()
