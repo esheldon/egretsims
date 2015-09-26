@@ -11,6 +11,15 @@ parser.add_argument('run',help='run identifier')
 parser.add_argument('--missing',action='store_true',
                     help='only do missing splits')
 
+def get_current_jobnames():
+    import esutil as eu
+    command="bjobs -w | awk '{print $7}' | grep -v JOBID"
+
+    stat,out,err=eu.ostools.exec_process("bjobs -w | awk '{print $7}' | grep -v JOBID")
+    jobnames = out.split('\n')
+    print("found",len(jobnames),"existing jobs")
+    return jobnames
+
 def get_config_file(run):
     """
     where the config files are located
@@ -66,6 +75,9 @@ class BatchMaker(dict):
         self._set_walltime()
         self._make_dirs()
 
+        if self['missing']:
+            self.jobnames = get_current_jobnames()
+
     def write_scripts(self):
         """
         Write all scripts
@@ -96,7 +108,17 @@ class BatchMaker(dict):
             meds_file=get_meds_file(self, fnum)
             psf_file=get_psf_file(self, fnum)
 
-            if os.path.exists(meds_file) and os.path.exists(psf_file):
+            if self['job_name'] in self.jobnames:
+                skip=True
+                print(self['job_name'],"is already running")
+
+            elif os.path.exists(meds_file) and os.path.exists(psf_file):
+                skip=True
+
+            else:
+                skip=False
+
+            if skip:
                 if os.path.exists(fname):
                     os.remove(fname)
                 return
