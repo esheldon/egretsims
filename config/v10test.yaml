@@ -26,7 +26,7 @@ output_base: "/u/ki/esheldon/lensing/egretsims/v10test/work/data/v10test"
 ####################################################################
 # this is used to seed everything
 # by generating more seeds for all other generators just once
-global_seed: 2499
+global_seed: 1736
 
 ####################################################################
 # these options can be used for parallel sim generation
