@@ -68,6 +68,7 @@ class BatchMaker(dict):
         self.update(kw)
 
         self['run'] = run
+        self['basename'] = run
         self['missing'] = missing
 
         self._load_config()
@@ -140,6 +141,8 @@ class BatchMaker(dict):
         conf = read_config(self['run'])
         self.update(conf)
 
+        self['output_dir'] = self.get_output_dir()
+
     def _set_walltime(self):
         overhead = 5.0*60.0 # 5 minute overhead for preload
         ngals = self['Ngals']
@@ -149,6 +152,8 @@ class BatchMaker(dict):
 
         # always add an extra hour
         time_hours_supp = time_hours + 1.0
+        if time_hours_supp < 12:
+            time_hours_supp = 12.0
 
         hours_round = int(round(time_hours_supp))
 
@@ -165,7 +170,8 @@ class BatchMaker(dict):
                                         "walltime: %s" %self['walltime']])
  
     def _make_dirs(self):
-        dir1=os.path.dirname(self['output_base'])
+        dir1=self.get_output_dir()
+        #os.path.dirname(self['output_base'])
         dir2=self.get_batch_dir()
 
         for dir in [dir1,dir2]:
@@ -174,10 +180,19 @@ class BatchMaker(dict):
                 os.makedirs(dir)
 
 class LSFMaker(BatchMaker):
+    def get_output_dir(self):
+        #d = os.path.join(self['output_base'], self['run'], 'work','data')
+        # for matt output dir is actually the base dir, and we output to
+        # output_dir/basename/
+        d = os.path.join(self['output_base'])
+        return d
+
     def get_batch_dir(self):
-        bdir = os.path.dirname(self['output_base'])
-        bdir = os.path.dirname(bdir)
-        batch_dir=os.path.join(bdir, 'lsf')
+        #bdir = os.path.dirname(self['output_base'])
+        #bdir = os.path.dirname(bdir)
+        #batch_dir=os.path.join(bdir, 'lsf')
+
+        batch_dir = os.path.join(self['output_base'], self['run'], 'lsf')
         return batch_dir
 
     def get_batch_file(self, fnum, missing=False):
@@ -207,15 +222,16 @@ echo "working on host: $(hostname)"
 
 numfiles=%(Nfiles)s
 fnum=%(fnum)d
-output_base=%(output_base)s
+output_dir=%(output_dir)s
 config_file=%(config_file)s
 
 egret                            \\
     --num-seeds ${numfiles}      \\
     --seed-index ${fnum}         \\
-    --output-base ${output_base} \\
+    --output-dir ${output_dir} \\
     ${config_file}
 """
+#    --output-base ${output_base} \\
 
 _batch_systems=['lsf']
 

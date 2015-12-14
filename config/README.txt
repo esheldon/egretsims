@@ -1,3 +1,24 @@
+vtest01
+------------
+Testing new egret simulation with shear maker in the sim maker
+
+v11
+---
+300 random shears, ranging from -0.08 to 0.08, following the
+same distribution as great3: uniform in |shear|
+
+100 million objects
+
+v10
+---
+300 random shears, ranging from -0.05 to 0.05, following the
+same distribution as great3: uniform in |shear|.
+
+2,000,000 objects
+
+
+
+
 # v04 and vd04 are using the new egret interface, trying to match v3
 v04
     all standard settings.  1,000 per file, 2,000 files for 2,000,000 total
@@ -24,3 +45,4 @@ v08
 v09
 ---
 1,000,000 zero shear but noise of great3
+
