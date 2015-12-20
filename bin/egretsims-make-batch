@@ -45,16 +45,20 @@ def read_config(run):
 def get_meds_file(conf, fnum):
     base=conf['output_base']
 
-    fname = '%s_meds%06d.fits.fz' % (base, fnum)
-    fname = os.path.join(base, fname)
+    dir=os.path.join(base, conf['run'])
+
+    fname = '%s_meds%06d.fits.fz' % (conf['run'], fnum)
+    fname = os.path.join(dir, fname)
 
     return fname
 
 def get_psf_file(conf, fnum):
     base=conf['output_base']
 
-    fname = '%s_psf%06d.fits' %(base,fnum)
-    fname = os.path.join(base, fname)
+    dir=os.path.join(base, conf['run'])
+
+    fname = '%s_psf%06d.fits' %(conf['run'],fnum)
+    fname = os.path.join(dir, fname)
 
     return fname
 
@@ -141,7 +145,7 @@ class BatchMaker(dict):
         conf = read_config(self['run'])
         self.update(conf)
 
-        self['output_dir'] = self.get_output_dir()
+        self['output_dir'] = self.get_output_base_dir()
 
     def _set_walltime(self):
         overhead = 5.0*60.0 # 5 minute overhead for preload
@@ -170,7 +174,7 @@ class BatchMaker(dict):
                                         "walltime: %s" %self['walltime']])
  
     def _make_dirs(self):
-        dir1=self.get_output_dir()
+        dir1=self.get_output_base_dir()
         #os.path.dirname(self['output_base'])
         dir2=self.get_batch_dir()
 
@@ -180,7 +184,7 @@ class BatchMaker(dict):
                 os.makedirs(dir)
 
 class LSFMaker(BatchMaker):
-    def get_output_dir(self):
+    def get_output_base_dir(self):
         #d = os.path.join(self['output_base'], self['run'], 'work','data')
         # for matt output dir is actually the base dir, and we output to
         # output_dir/basename/
