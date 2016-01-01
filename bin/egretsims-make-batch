@@ -156,8 +156,8 @@ class BatchMaker(dict):
 
         # always add an extra hour
         time_hours_supp = time_hours + 1.0
-        if time_hours_supp < 12:
-            time_hours_supp = 12.0
+        if time_hours_supp < 23.0:
+            time_hours_supp = 23.0
 
         hours_round = int(round(time_hours_supp))
 
